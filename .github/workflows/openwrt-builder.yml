@@ -1,16 +1,18 @@
 #
-# https://github.com/P3TERX/Actions-OpenWrt
+# https://github.com/ud3v0id/openwrt-hd2312
 #
-# File: .github/workflows/openwrt-bulder.yml
-# Description: Build OpenWrt using GitHub Actions
+# File: .github/workflows/builder.yml
+# Description: Build Openwrt DVB driver for NERC DTV (
+# CY68013A + HDIC HD2312) DTMB/DMB-TH USB adapter using
+# GitHub Actions
 #
-# Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
+# Copyright (c) 2024 ud3v0id <ppz@tuta.io>
 #
 # This is free software, licensed under the MIT License.
 # See /LICENSE for more information.
 #
 
-name: OpenWrt Builder
+name: Openwrt DVB driver Builder
 
 on:
   repository_dispatch:
@@ -19,10 +21,8 @@ on:
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt
   REPO_BRANCH: v23.05.4
-  FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: .config
-  DIY_P1_SH: diy-part1.sh
-  DIY_P2_SH: diy-part2.sh
+  FEEDS_URL: https://downloads.immortalwrt.org/releases/23.05.4/targets/x86/64/feeds.buildinfo
+  CONFIG_URL: https://downloads.immortalwrt.org/releases/23.05.4/targets/x86/64/config.buildinfo
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
@@ -54,15 +54,23 @@ jobs:
       working-directory: /workdir
       run: |
         df -hT $PWD
-        git clone --depth 1 --branch $REPO_BRANCH $REPO_URL openwrt
+        git clone --depth 1 --branch $REPO_BRANCH --single-branch --filter=blob:none $REPO_URL openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
+        git clone --depth 1 --branch main --single-branch --filter=blob:none https://github.com/hanwckf/hd2312 hd2312
+        cat /work/dir/hd2312/openwrt/dvb-kconfig >> $GITHUB_WORKSPACE/openwrt/target/linux/generic/config-[0-9].[0-9]*
+        ln -sf /workdir/hd2312/openwrt/dvb.mk $GITHUB_WORKSPACE/openwrt/package/kernel/linux/modules/dvb.mk
+        ln -sf /workdir/hd2312 $GITHUB_WORKSPACE/openwrt/package/hd2312
 
     - name: Load custom feeds
       run: |
-        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
-        chmod +x $DIY_P1_SH
-        cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P1_SH
+        wget $FEEDS_URL -o openwrt/feeds.conf.default
+        DIY_PART1_SCRIPT=scripts/${REPO_URL##*/}-part1.sh
+        [ -e $DIY_PART1_SCRIPT ] && {
+            chmod +x $DIY_PART1_SCRIPT
+            cd openwrt
+            $GITHUB_WORKSPACE/$DIY_PART1_SCRIPT $REPO_BRANCH
+        }
 
     - name: Update feeds
       run: cd openwrt && ./scripts/feeds update -a
@@ -73,10 +81,13 @@ jobs:
     - name: Load custom configuration
       run: |
         [ -e files ] && mv files openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        chmod +x $DIY_P2_SH
-        cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P2_SH
+        wget $CONFIG_URL -o openwrt/.config
+        DIY_PART2_SCRIPT=scripts/${REPO_URL##*/}-part2.sh
+        [ -e $DIY_PART2_SCRIPT ] && {
+            chmod +x $DIY_PART2_SCRIPT
+            cd openwrt
+            $GITHUB_WORKSPACE/$DIY_PART2_SCRIPT $REPO_BRANCH
+        }
 
     - name: Download package
       id: package
@@ -84,16 +95,17 @@ jobs:
         cd openwrt
         make defconfig
         make download -j8
+        make clean
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: Compile the firmware
+    - name: Compile the modules
       id: compile
       run: |
         cd openwrt
         echo -e "$(nproc) thread compile"
-        make target/linux/clean
-        make target/linux/compile -j$(nproc) || make target/linux/compile -j1 || make target/linux/compile -j1 V=s
+        target=tools/compile toolchain/compile target/linux/compile
+        make $target -j$(nproc) || make $target -j1 || make $target -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
@@ -103,6 +115,7 @@ jobs:
       if: (!cancelled())
       run: df -hT
 
+      # TODO:fixme
     - name: Upload bin directory
       uses: actions/upload-artifact@main
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
