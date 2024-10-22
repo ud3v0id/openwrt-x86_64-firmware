@@ -21,6 +21,9 @@ echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.defa
 echo 'src-git argon https://github.com/jerrykuku/luci-theme-argon;master' >> feeds.conf.default
 echo 'src-git argon_config https://github.com/jerrykuku/luci-app-argon-config;master' >> feeds.conf.default
 
+# Add package
+cp -r ../package/* package/
+
 # Linux DVB driver for NERC DTV (CY68013A+HDIC HD2312) DTMB/DMB-TH USB adapter
 HD2312="$(pwd)/hd2312"
 git clone --depth 1 --branch main https://github.com/hanwckf/hd2312.git $HD2312
