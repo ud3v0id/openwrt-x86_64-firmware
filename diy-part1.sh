@@ -23,7 +23,7 @@ echo 'src-git argon_config https://github.com/jerrykuku/luci-app-argon-config;ma
 
 # Linux DVB driver for NERC DTV (CY68013A+HDIC HD2312) DTMB/DMB-TH USB adapter
 HD2312="$(pwd)/hd2312"
-git clone --depth 1 --branch master https://github.com/hanwckf/hd2312.git $HD2312
+git clone --depth 1 --branch main https://github.com/hanwckf/hd2312.git $HD2312
 
 cat $HD2312/openwrt/dvb-kconfig >> target/linux/generic/config-[0-9].[0-9]*
 cp $HD2312/openwrt/dvb.mk package/kernel/linux/modules/
