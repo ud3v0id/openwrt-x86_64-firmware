@@ -58,7 +58,7 @@ jobs:
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
         git clone --depth 1 --branch main --single-branch --filter=blob:none https://github.com/hanwckf/hd2312 hd2312
-        cat /work/dir/hd2312/openwrt/dvb-kconfig >> $GITHUB_WORKSPACE/openwrt/target/linux/generic/config-[0-9].[0-9]*
+        cat /workdir/hd2312/openwrt/dvb-kconfig >> $GITHUB_WORKSPACE/openwrt/target/linux/generic/config-[0-9].[0-9]*
         ln -sf /workdir/hd2312/openwrt/dvb.mk $GITHUB_WORKSPACE/openwrt/package/kernel/linux/modules/dvb.mk
         ln -sf /workdir/hd2312 $GITHUB_WORKSPACE/openwrt/package/hd2312
 
